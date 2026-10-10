@@ -3,6 +3,13 @@ import { BookOpen, AlertTriangle } from 'lucide-react';
 import type { User } from '../../shared/exam';
 import { api } from '../../services/api';
 
+// ponytail: public demo accounts on purpose (requested); remove before real students use the app
+const DEMO = [
+  { role: 'Admin', email: 'admin@zenexam.local', password: 'demo-admin-123' },
+  { role: 'Teacher', email: 'teacher@zenexam.local', password: 'demo-teacher-123' },
+  { role: 'Student', email: 'student@zenexam.local', password: 'demo-student-123' },
+];
+
 export const Login: React.FC<{ onSignedIn: (user: User) => void }> = ({ onSignedIn }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,6 +57,24 @@ export const Login: React.FC<{ onSignedIn: (user: User) => void }> = ({ onSigned
         <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        <div className="stack" style={{ gap: 6 }}>
+          <span className="hint" style={{ textAlign: 'center' }}>Demo accounts</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {DEMO.map((d) => (
+              <button
+                key={d.role}
+                type="button"
+                className="btn btn-secondary btn-block"
+                onClick={() => {
+                  setEmail(d.email);
+                  setPassword(d.password);
+                }}
+              >
+                {d.role}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="hint" style={{ textAlign: 'center' }}>
           Forgot your password? Ask your school's administrator to reset it.
         </p>
