@@ -105,7 +105,11 @@ export const TestEditor: React.FC<{
 
   const test = tests[testIdx];
   const section = test.sections[sectionIdx] ?? test.sections[0];
-  const pages = test.sourceDocument?.pageImages ?? [];
+  const examPages = test.sourceDocument?.pageImages ?? [];
+  const keyImage = test.sourceDocument?.answerKeyImage;
+  // The answer key is shown after the exam pages; sourcePage indexes stay valid
+  const pages = keyImage ? [...examPages, keyImage] : examPages;
+  const onKey = Boolean(keyImage) && page === examPages.length;
   const issues = useMemo(() => validateTest(test), [test]);
   const errorsAll = tests.flatMap(validateTest).filter((i) => i.level === 'error');
   // One line each for missing / unanswered questions instead of one per question
@@ -346,13 +350,16 @@ export const TestEditor: React.FC<{
               <button className="icon-btn" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
                 <ChevronLeft size={18} />
               </button>
-              <span className="small">
-                Page {page + 1} of {pages.length}
-              </span>
+              <span className="small">{onKey ? 'Answer key' : `Page ${page + 1} of ${examPages.length}`}</span>
               <button className="icon-btn" disabled={page >= pages.length - 1} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
                 <ChevronRight size={18} />
               </button>
               <span className="spacer" />
+              {keyImage && (
+                <button className="btn btn-ghost btn-sm" onClick={() => setPage(onKey ? 0 : examPages.length)}>
+                  {onKey ? 'Exam pages' : 'Answer key'}
+                </button>
+              )}
               <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))} aria-label="Zoom out">
                 <ZoomOut size={16} />
               </button>
@@ -361,7 +368,7 @@ export const TestEditor: React.FC<{
               </button>
             </div>
             <div className="frame">
-              <PageImage key={pages[page]} src={pages[page]} alt={`Original page ${page + 1}`} zoom={zoom} />
+              <PageImage key={pages[page]} src={pages[page]} alt={onKey ? 'Answer key' : `Original page ${page + 1}`} zoom={zoom} />
             </div>
           </aside>
         )}
