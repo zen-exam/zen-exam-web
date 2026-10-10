@@ -55,13 +55,18 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<User | null | undefined>(undefined); // undefined = still checking the session
   const [view, setView] = useState<View>({ name: 'practice' });
   const [tests, setTests] = useState<TestDefinition[]>([]);
+  const [loaded, setLoaded] = useState(false); // false until the first test list arrives (no "No tests yet" flash)
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
   const [toast, setToast] = useState<{ text: string } | null>(null);
 
   const refresh = useCallback(async (u: User) => {
-    const [t, a] = await Promise.all([api.listTests(), u.role === 'student' ? api.myAttempts() : Promise.resolve([])]);
-    setTests(t);
-    setAttempts(a);
+    try {
+      const [t, a] = await Promise.all([api.listTests(), u.role === 'student' ? api.myAttempts() : Promise.resolve([])]);
+      setTests(t);
+      setAttempts(a);
+    } finally {
+      setLoaded(true); // never leave the page stuck on "Loading" if the request fails
+    }
   }, []);
 
   const signIn = useCallback(
@@ -188,11 +193,12 @@ export const App: React.FC = () => {
             await api.logout().catch(() => {});
             setUser(null);
             setTests([]);
+            setLoaded(false);
             setAttempts([]);
           }}
         />
       )}
-      <main>{content ?? <div className="page muted">This item is no longer available.</div>}</main>
+      <main>{!loaded ? <div className="page muted">Loading tests…</div> : (content ?? <div className="page muted">This item is no longer available.</div>)}</main>
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={16} aria-hidden />
