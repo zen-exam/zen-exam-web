@@ -4,12 +4,9 @@ import type { Role, User } from '../../shared/exam';
 import { api } from '../../services/api';
 import { Modal } from '../common/ui';
 import { formatDate } from '../common/format';
+import { t } from '../../i18n';
 
-const ROLES: { value: Role; label: string }[] = [
-  { value: 'student', label: 'Student' },
-  { value: 'teacher', label: 'Teacher' },
-  { value: 'admin', label: 'Admin' },
-];
+const ROLES: Role[] = ['student', 'teacher', 'admin'];
 const MIN_PASSWORD = 8;
 
 /** Readable temporary password (no look-alike characters). */
@@ -20,14 +17,14 @@ const generatePassword = () => {
 
 const PasswordField: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => (
   <label className="field">
-    <span className="label">Temporary password</span>
+    <span className="label">{t('accounts.tempPassword')}</span>
     <div className="row">
       <input className="input" value={value} onChange={(e) => onChange(e.target.value)} autoComplete="new-password" />
       <button type="button" className="btn btn-secondary" onClick={() => onChange(generatePassword())}>
-        Generate
+        {t('accounts.generate')}
       </button>
     </div>
-    <span className="hint">At least {MIN_PASSWORD} characters. Share it with them privately.</span>
+    <span className="hint">{t('accounts.passwordHint', { n: MIN_PASSWORD })}</span>
   </label>
 );
 
@@ -97,31 +94,31 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
     <div className="page">
       <div className="page-header">
         <div>
-          <h1>Accounts</h1>
-          <p className="subtitle">Who can sign in, and what they can do. Teachers manage tests; admins also manage accounts.</p>
+          <h1>{t('accounts.title')}</h1>
+          <p className="subtitle">{t('accounts.subtitle')}</p>
         </div>
         <div className="actions">
           <button className="btn btn-primary" onClick={openAdd}>
-            <Plus size={16} /> Add account
+            <Plus size={16} /> {t('accounts.add')}
           </button>
         </div>
       </div>
 
       <div className="row-wrap" style={{ marginBottom: 16 }}>
-        <div className="chips" role="group" aria-label="Filter by role">
+        <div className="chips" role="group" aria-label={t('accounts.filterByRole')}>
           <button className="chip" aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
-            All ({users?.length ?? 0})
+            {t('accounts.all', { n: users?.length ?? 0 })}
           </button>
           {ROLES.map((r) => (
-            <button key={r.value} className="chip" aria-pressed={filter === r.value} onClick={() => setFilter(r.value)}>
-              {r.label}s ({count(r.value)})
+            <button key={r} className="chip" aria-pressed={filter === r} onClick={() => setFilter(r)}>
+              {t(`rolePlural.${r}`, { n: count(r) })}
             </button>
           ))}
         </div>
         <span className="spacer" />
         <label className="search">
           <Search size={15} aria-hidden />
-          <input className="input" placeholder="Search name or email" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search accounts" />
+          <input className="input" placeholder={t('accounts.search')} value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t('accounts.searchAria')} />
         </label>
       </div>
 
@@ -132,7 +129,7 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
       )}
 
       {users === null ? (
-        <p className="muted">Loading accounts…</p>
+        <p className="muted">{t('accounts.loading')}</p>
       ) : (
         <div className="list">
           {shown.map((u) => {
@@ -145,12 +142,12 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div className="row-wrap">
                     <span className="title">{u.name}</span>
-                    {isMe && <span className="badge">You</span>}
-                    {u.disabled && <span className="badge badge-danger">Disabled</span>}
+                    {isMe && <span className="badge">{t('accounts.you')}</span>}
+                    {u.disabled && <span className="badge badge-danger">{t('accounts.disabled')}</span>}
                   </div>
                   <div className="sub">
                     <span>{u.email}</span>
-                    <span>Added {formatDate(u.createdAt)}</span>
+                    <span>{t('common.added', { date: formatDate(u.createdAt) })}</span>
                   </div>
                 </div>
                 <div className="actions">
@@ -159,13 +156,13 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
                     style={{ width: 'auto' }}
                     value={u.role}
                     disabled={isMe}
-                    title={isMe ? "You can't change your own role" : undefined}
-                    aria-label={`Role for ${u.name}`}
+                    title={isMe ? t('accounts.ownRole') : undefined}
+                    aria-label={t('accounts.roleFor', { name: u.name })}
                     onChange={(e) => run(async () => replace(await api.updateUser(u.id, { role: e.target.value as Role })))}
                   >
                     {ROLES.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
+                      <option key={r} value={r}>
+                        {t(`role.${r}`)}
                       </option>
                     ))}
                   </select>
@@ -177,37 +174,37 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
                       setResetting(u);
                     }}
                   >
-                    <KeyRound size={15} /> Reset password
+                    <KeyRound size={15} /> {t('accounts.resetPassword')}
                   </button>
                   {!isMe &&
                     (u.disabled ? (
                       <button className="btn btn-ghost btn-sm" onClick={() => run(async () => replace(await api.updateUser(u.id, { disabled: false })))}>
-                        <UserCheck size={15} /> Enable
+                        <UserCheck size={15} /> {t('accounts.enable')}
                       </button>
                     ) : (
                       <button className="btn btn-ghost btn-sm" onClick={() => run(async () => replace(await api.updateUser(u.id, { disabled: true })))}>
-                        <UserX size={15} /> Disable
+                        <UserX size={15} /> {t('accounts.disable')}
                       </button>
                     ))}
                 </div>
               </div>
             );
           })}
-          {shown.length === 0 && <div className="list-row muted">No accounts match.</div>}
+          {shown.length === 0 && <div className="list-row muted">{t('accounts.noMatch')}</div>}
         </div>
       )}
 
       {adding && (
         <Modal
-          title="Add account"
+          title={t('accounts.add')}
           onClose={() => setAdding(false)}
           footer={
             <>
               <button className="btn btn-secondary" onClick={() => setAdding(false)}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button className="btn btn-primary" form="add-account">
-                Create account
+                {t('accounts.create')}
               </button>
             </>
           }
@@ -219,19 +216,19 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
               </div>
             )}
             <label className="field">
-              <span className="label">Full name</span>
+              <span className="label">{t('accounts.fullName')}</span>
               <input className="input" required autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </label>
             <label className="field">
-              <span className="label">Email</span>
+              <span className="label">{t('common.email')}</span>
               <input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </label>
             <label className="field">
-              <span className="label">Role</span>
+              <span className="label">{t('accounts.role')}</span>
               <select className="select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
                 {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
+                  <option key={r} value={r}>
+                    {t(`role.${r}`)}
                   </option>
                 ))}
               </select>
@@ -243,15 +240,15 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
 
       {resetting && (
         <Modal
-          title={`Reset password for ${resetting.name}`}
+          title={t('accounts.resetFor', { name: resetting.name })}
           onClose={() => setResetting(null)}
           footer={
             <>
               <button className="btn btn-secondary" onClick={() => setResetting(null)}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button className="btn btn-primary" form="reset-password">
-                Reset password
+                {t('accounts.resetPassword')}
               </button>
             </>
           }
@@ -262,7 +259,7 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
                 <AlertTriangle size={16} /> {formError}
               </div>
             )}
-            <p>They'll be signed out on every device and must use the new password.</p>
+            <p>{t('accounts.resetNote')}</p>
             <PasswordField value={form.password} onChange={(password) => setForm({ ...form, password })} />
           </form>
         </Modal>
@@ -270,25 +267,25 @@ export const Accounts: React.FC<{ me: User }> = ({ me }) => {
 
       {shared && (
         <Modal
-          title="Share these sign-in details"
+          title={t('accounts.shareTitle')}
           onClose={() => setShared(null)}
           footer={
             <button className="btn btn-primary" onClick={() => setShared(null)}>
-              Done
+              {t('accounts.done')}
             </button>
           }
         >
-          <p>This password won't be shown again.</p>
+          <p>{t('accounts.shownOnce')}</p>
           <div className="credentials">
             <div>
-              <span className="label">Email</span> {shared.email}
+              <span className="label">{t('common.email')}</span> {shared.email}
             </div>
             <div>
-              <span className="label">Password</span> <code>{shared.password}</code>
+              <span className="label">{t('common.password')}</span> <code>{shared.password}</code>
             </div>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigator.clipboard.writeText(`Email: ${shared.email}\nPassword: ${shared.password}`)}>
-            <Copy size={14} /> Copy
+          <button className="btn btn-secondary btn-sm" onClick={() => navigator.clipboard.writeText(t('accounts.copyText', { email: shared.email, password: shared.password }))}>
+            <Copy size={14} /> {t('accounts.copy')}
           </button>
         </Modal>
       )}

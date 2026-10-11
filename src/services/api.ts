@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { ExamAttempt, Role, StudentAnswer, TestDefinition, User } from '../shared/exam';
 
 export interface StorageUsage {
@@ -38,7 +39,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && path !== '/api/auth/login') window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
-    throw new ApiError(res.status, json.error ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, json.error ?? t('common.requestFailed', { status: res.status }));
   }
   return json as T;
 }

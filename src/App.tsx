@@ -12,6 +12,7 @@ import { AttemptsReview } from './components/teacher/AttemptsReview';
 import { Accounts } from './components/admin/Accounts';
 import type { ExamAttempt, Role, TestDefinition, User } from './shared/exam';
 import { api, SIGNED_OUT_EVENT } from './services/api';
+import { t, useLang } from './i18n';
 
 type View =
   | { name: 'practice' }
@@ -31,11 +32,11 @@ const ALLOWED: Record<Role, View['name'][]> = {
 };
 const HOME: Record<Role, View> = { student: { name: 'practice' }, teacher: { name: 'tests' }, admin: { name: 'tests' } };
 const NAV: Record<Role, NavItem[]> = {
-  student: [{ id: 'practice', label: 'Practice' }],
-  teacher: [{ id: 'tests', label: 'Tests' }],
+  student: [{ id: 'practice' }],
+  teacher: [{ id: 'tests' }],
   admin: [
-    { id: 'tests', label: 'Tests' },
-    { id: 'accounts', label: 'Accounts' },
+    { id: 'tests' },
+    { id: 'accounts' }
   ],
 };
 
@@ -47,11 +48,12 @@ const ResultScreen: React.FC<{ attemptId: string; onRetake: (testId: string) => 
     api.getAttempt(attemptId).then(setData, (e: Error) => setError(e.message));
   }, [attemptId]);
   if (error) return <div className="page muted">{error}</div>;
-  if (!data) return <div className="page muted">Loading your result…</div>;
+  if (!data) return <div className="page muted">{t('app.loadingResult')}</div>;
   return <ResultView test={data.test} attempt={data.attempt} onRetake={() => onRetake(data.test.id)} onBack={onBack} />;
 };
 
 export const App: React.FC = () => {
+  useLang(); // re-render everything when the language changes
   const [user, setUser] = useState<User | null | undefined>(undefined); // undefined = still checking the session
   const [view, setView] = useState<View>({ name: 'practice' });
   const [tests, setTests] = useState<TestDefinition[]>([]);
@@ -61,8 +63,8 @@ export const App: React.FC = () => {
 
   const refresh = useCallback(async (u: User) => {
     try {
-      const [t, a] = await Promise.all([api.listTests(), u.role === 'student' ? api.myAttempts() : Promise.resolve([])]);
-      setTests(t);
+      const [list, a] = await Promise.all([api.listTests(), u.role === 'student' ? api.myAttempts() : Promise.resolve([])]);
+      setTests(list);
       setAttempts(a);
     } finally {
       setLoaded(true); // never leave the page stuck on "Loading" if the request fails
@@ -110,7 +112,7 @@ export const App: React.FC = () => {
     if (isStaff) {
       // Teacher/admin preview: scored locally, never saved
       go({ name: 'tests' });
-      setToast({ text: `Preview finished: ${attempt.rawScore}/${attempt.maxScore} correct` });
+      setToast({ text: t('app.previewFinished', { raw: attempt.rawScore, max: attempt.maxScore }) });
       return;
     }
     const saved = await api.submitAttempt(attempt.testId, attempt.answers, attempt.durationSeconds); // server scores it
@@ -154,9 +156,9 @@ export const App: React.FC = () => {
           onEdit={(testId) => go({ name: 'edit', testId })}
           onPreview={(testId) => go({ name: 'exam', testId })}
           onAttempts={(testId) => go({ name: 'attempts', testId })}
-          onDelete={async (t) => {
-            await api.deleteTest(t.id);
-            await backToTests(`Deleted "${t.title}"`);
+          onDelete={async (test) => {
+            await api.deleteTest(test.id);
+            await backToTests(t('app.deleted', { title: test.title }));
           }}
         />
       );
@@ -198,7 +200,7 @@ export const App: React.FC = () => {
           }}
         />
       )}
-      <main>{!loaded ? <div className="page muted">Loading tests…</div> : (content ?? <div className="page muted">This item is no longer available.</div>)}</main>
+      <main>{!loaded ? <div className="page muted">{t('app.loadingTests')}</div> : (content ?? <div className="page muted">{t('app.unavailable')}</div>)}</main>
       {toast && (
         <div className="toast" role="status">
           <CheckCircle2 size={16} aria-hidden />

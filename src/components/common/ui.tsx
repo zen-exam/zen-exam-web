@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Headphones, BookOpen, PenLine, Mic } from 'lucide-react';
+import { Headphones, BookOpen, PenLine, Mic, Languages } from 'lucide-react';
 import type { TestDefinition } from '../../shared/exam';
+import { LANGS, getLang, setLang, t } from '../../i18n';
 
 type Skill = TestDefinition['skill'];
 
@@ -11,7 +12,7 @@ export const SkillBadge: React.FC<{ skill: Skill }> = ({ skill }) => {
   return (
     <span className={`badge badge-${skill.toLowerCase()}`}>
       <Icon size={12} aria-hidden />
-      {skill}
+      {t(`skill.${skill}`)}
     </span>
   );
 };
@@ -58,5 +59,17 @@ export const EmptyState: React.FC<{
     <h3>{title}</h3>
     {children && <p>{children}</p>}
     {action}
+  </div>
+);
+
+/** EN | VI toggle: both choices visible, one click to switch. Names are shown in their own language. */
+export const LangSwitch: React.FC = () => (
+  <div className="lang-switch" role="group" aria-label={t('common.language')}>
+    <Languages size={14} aria-hidden />
+    {LANGS.map((l) => (
+      <button key={l.value} lang={l.value} aria-pressed={getLang() === l.value} title={l.label} aria-label={l.label} onClick={() => setLang(l.value)}>
+        {l.short}
+      </button>
+    ))}
   </div>
 );

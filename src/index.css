@@ -93,7 +93,7 @@ img { max-width: 100%; display: block; }
 .main-nav { display: flex; gap: 2px; margin-left: 12px; }
 .main-nav button {
   border: 0; background: none; padding: 8px 12px; border-radius: var(--radius-sm);
-  font-weight: 600; font-size: 14px; color: var(--text-2);
+  font-weight: 600; font-size: 14px; color: var(--text-2); white-space: nowrap;
 }
 .main-nav button:hover { background: var(--surface-2); color: var(--text); }
 .main-nav button[aria-current='page'] { background: var(--primary-soft); color: var(--primary); }
@@ -104,7 +104,21 @@ img { max-width: 100%; display: block; }
 .role-teacher { background: var(--speaking-soft); color: var(--speaking); }
 .role-admin { background: var(--listening-soft); color: var(--listening); }
 
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; position: relative; }
+.login-lang { position: absolute; top: 16px; right: 16px; }
+.topbar-sep { width: 1px; height: 20px; background: var(--border); }
+.lang-switch {
+  display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-2);
+}
+.lang-switch svg { margin-right: 4px; }
+.lang-switch button {
+  border: 0; background: none; color: var(--text-2); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 4px 9px; border-radius: 999px; cursor: pointer;
+}
+.lang-switch button:hover { color: var(--text); }
+.lang-switch button[aria-pressed='true'] { background: var(--primary-soft); color: var(--primary); }
+.lang-switch button:focus-visible { outline: none; box-shadow: var(--focus); }
 .login-card { width: 100%; max-width: 400px; padding: 32px; }
 
 .avatar {
@@ -354,6 +368,7 @@ details.disclosure > :not(summary) { margin-top: 8px; }
 .answer-pair .label { font-weight: 500; color: var(--text-3); }
 .answer-pair .wrong { color: var(--danger); text-decoration: line-through; }
 .answer-pair .right { color: var(--success); font-weight: 600; }
+.result-prompt { flex: 1; }
 .override-toggle { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; }
 .override-toggle button { border: 0; background: var(--surface); padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--text-2); }
 .override-toggle button + button { border-left: 1px solid var(--border-strong); }
@@ -451,19 +466,29 @@ details.disclosure > :not(summary) { margin-top: 8px; }
   .page-viewer { position: static; }
   .page-viewer .frame { height: 50vh; }
   .q-fields { grid-template-columns: 1fr; }
-  .exam-body { flex-direction: column; overflow-y: auto; }
-  .exam-pane { width: 100% !important; }
+  /* passage on top, questions below; each half scrolls on its own (a lone question sheet takes it all) */
+  .exam-body { flex-direction: column; }
+  .exam-pane { width: 100% !important; flex: 1 1 0; }
   .resizer { display: none; }
-  .passage, .qsheet { overflow: visible; }
+  .resizer + .qsheet { border-top: 2px solid var(--border-strong); }
   .palette-legend { display: none; }
 }
 @media (max-width: 640px) {
   .page { padding: 20px 16px 48px; }
   .topbar-inner { padding: 0 16px; }
-  .brand-name, .user-name { display: none; }
+  .topbar-inner { gap: 8px; }
+  /* phone: logo, nav, EN|VI, sign out. Name and role are dropped to make room. */
+  .brand-name, .user-id, .topbar-sep, .lang-switch svg { display: none; }
+  .lang-switch { padding-left: 2px; }
   .main-nav { margin-left: 4px; }
+  .main-nav button { padding: 8px 10px; }
   .list-row { flex-wrap: wrap; }
-  .list-row .actions { margin-left: 0; width: 100%; }
+  .list-row .actions { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .search { width: 100%; }
+  .result-head { flex-wrap: wrap; }
+  .result-prompt { flex-basis: 100%; }
+  .exam-tools { flex-wrap: nowrap; }
+  .exam-tools .tabs { min-width: 0; }
   .passage { padding: 16px; }
   .qsheet { padding: 16px; }
   .qcard-body { margin-left: 0; }

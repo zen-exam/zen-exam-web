@@ -5,6 +5,7 @@ import { extractPdfContent } from '../../services/pdfExtractService';
 import { digitizeWithGemini, fileToDataUrl } from '../../services/geminiExamService';
 import { api } from '../../services/api';
 import { TestEditor } from './TestEditor';
+import { t } from '../../i18n';
 
 type Step = 'upload' | 'reading' | 'review';
 type LogItem = { level: 'info' | 'success' | 'warning' | 'error'; message: string };
@@ -78,7 +79,7 @@ const DropZone: React.FC<{
               {f.type === 'application/pdf' ? <FileText size={16} aria-hidden /> : <ImageIcon size={16} aria-hidden />}
               <span className="name">{f.name}</span>
               <span className="muted small">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-              <button className="icon-btn" onClick={() => onChange(files.filter((_, j) => j !== i))} aria-label={`Remove ${f.name}`}>
+              <button className="icon-btn" onClick={() => onChange(files.filter((_, j) => j !== i))} aria-label={t('add.remove', { name: f.name })}>
                 <X size={16} />
               </button>
             </div>
@@ -103,7 +104,7 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
     setStep('reading');
     setError(null);
     setLog([]);
-    setProgress({ pct: 2, status: 'Preparing pages…' });
+    setProgress({ pct: 2, status: t('add.preparing') });
     try {
       const exam = await toPageImages(examFiles);
       const key = await toPageImages(keyFiles);
@@ -116,10 +117,10 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
         onLog: (level, message) => setLog((l) => [...l, { level, message }]),
         onProgress: (pct, status) => setProgress({ pct, status }),
       });
-      if (!result.tests.length) throw new Error("We couldn't find any IELTS questions or tasks in these files.");
+      if (!result.tests.length) throw new Error(t('add.noQuestions'));
 
       // Save as drafts right away, so nothing is lost if the review is left half-way
-      setProgress({ pct: 97, status: 'Saving draft…' });
+      setProgress({ pct: 97, status: t('add.savingDraft') });
       const saved: TestDefinition[] = [];
       for (const t of result.tests) saved.push(await api.saveTest(t));
       setDrafts(saved);
@@ -135,12 +136,12 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
   };
 
   const stepper = (
-    <div className="steps" aria-label="Progress">
+    <div className="steps" aria-label={t('add.progress')}>
       {(
         [
-          ['upload', 'Upload'],
-          ['reading', 'Read exam'],
-          ['review', 'Review & publish'],
+          ['upload', t('add.stepUpload')],
+          ['reading', t('add.stepRead')],
+          ['review', t('add.stepReview')],
         ] as const
       ).map(([s, label], i) => (
         <React.Fragment key={s}>
@@ -161,12 +162,12 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
   return (
     <div className="page page-narrow">
       <button className="back-link" onClick={onCancel}>
-        <ArrowLeft size={16} /> Your tests
+        <ArrowLeft size={16} /> {t('teacher.title')}
       </button>
       <div className="page-header">
         <div>
-          <h1>Add a test</h1>
-          <p className="subtitle">Upload an IELTS paper. We read every page and build the online test for you to check.</p>
+          <h1>{t('teacher.addTest')}</h1>
+          <p className="subtitle">{t('add.subtitle')}</p>
         </div>
       </div>
       {stepper}
@@ -175,13 +176,13 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
         <div className="stack">
           <div className="card card-body stack">
             <div>
-              <h3>1. Exam paper</h3>
-              <p className="muted small">A PDF, or photos of each page. Listening, Reading, Writing and Speaking are all supported.</p>
+              <h3>{t('add.paperTitle')}</h3>
+              <p className="muted small">{t('add.paperDesc')}</p>
             </div>
             <DropZone
               id="exam-files"
-              title="Drop files here or click to choose"
-              hint="PDF, JPG or PNG · several files are fine"
+              title={t('add.drop')}
+              hint={t('add.dropHint')}
               files={examFiles}
               onChange={setExamFiles}
             />
@@ -190,21 +191,21 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
           <div className="card card-body stack">
             <div>
               <h3>
-                2. Answer key <span className="badge">Optional</span>
+                {t('add.keyTitle')} <span className="badge">{t('add.optional')}</span>
               </h3>
               <p className="muted small">
-                Add it for exact answers. Without one, Reading answers are worked out from the passage and marked for you to check.
+                {t('add.keyDesc')}
               </p>
             </div>
-            <DropZone id="key-files" title="Drop the answer key page" hint="PDF, JPG or PNG" files={keyFiles} onChange={setKeyFiles} />
+            <DropZone id="key-files" title={t('add.keyDrop')} hint={t('add.keyHint')} files={keyFiles} onChange={setKeyFiles} />
             <details className="disclosure">
-              <summary>Or type the answers</summary>
+              <summary>{t('add.typeAnswers')}</summary>
               <textarea
                 className="textarea"
                 rows={6}
                 value={keyText}
                 onChange={(e) => setKeyText(e.target.value)}
-                placeholder={'One per line, e.g.\n1 population\n2 suburbs\n23 C / D'}
+                placeholder={t('add.typePlaceholder')}
               />
             </details>
           </div>
@@ -212,10 +213,10 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
           <div className="row">
             <span className="spacer" />
             <button className="btn btn-secondary" onClick={onCancel}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button className="btn btn-primary btn-lg" disabled={!examFiles.length} onClick={read}>
-              Read exam
+              {t('add.stepRead')}
             </button>
           </div>
         </div>
@@ -228,15 +229,15 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
               <div className="alert alert-danger">
                 <XCircle size={16} />
                 <div>
-                  <strong>Something went wrong.</strong> {error}
+                  <strong>{t('add.wrong')}</strong> {error}
                 </div>
               </div>
               <div className="row">
                 <button className="btn btn-secondary" onClick={() => setStep('upload')}>
-                  Change files
+                  {t('add.changeFiles')}
                 </button>
                 <button className="btn btn-primary" onClick={read}>
-                  Try again
+                  {t('common.tryAgain')}
                 </button>
               </div>
             </>
@@ -251,7 +252,7 @@ export const AddTest: React.FC<{ onSaved: (message: string) => void; onCancel: (
               <div className="progress" role="progressbar" aria-valuenow={progress.pct} aria-valuemin={0} aria-valuemax={100}>
                 <div style={{ width: `${progress.pct}%` }} />
               </div>
-              <p className="muted small">This takes about 5–10 seconds per page. You can keep this tab open in the background.</p>
+              <p className="muted small">{t('add.timeHint')}</p>
             </>
           )}
           {log.length > 0 && (

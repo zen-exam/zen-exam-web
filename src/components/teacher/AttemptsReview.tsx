@@ -5,6 +5,7 @@ import { gradeAnswer, isAutoGraded } from '../../shared/grading';
 import { api } from '../../services/api';
 import { EmptyState, SkillBadge } from '../common/ui';
 import { answerList, formatDate, formatDuration, sectionLabel } from '../common/format';
+import { t } from '../../i18n';
 
 type Override = StudentAnswer['manualOverrideStatus'];
 
@@ -38,13 +39,13 @@ export const AttemptsReview: React.FC<{ test: TestDefinition; onBack: () => void
   return (
     <div className="page page-narrow">
       <button className="back-link" onClick={onBack}>
-        <ArrowLeft size={16} /> Tests
+        <ArrowLeft size={16} /> {t('nav.tests')}
       </button>
       <div className="page-header">
         <div>
           <SkillBadge skill={test.skill} />
           <h1 style={{ marginTop: 8 }}>{test.title}</h1>
-          <p className="subtitle">Student results. Mark an answer correct or wrong if the automatic marking got it wrong.</p>
+          <p className="subtitle">{t('attempts.subtitle')}</p>
         </div>
       </div>
 
@@ -55,10 +56,10 @@ export const AttemptsReview: React.FC<{ test: TestDefinition; onBack: () => void
       )}
 
       {attempts === null ? (
-        <p className="muted">Loading results…</p>
+        <p className="muted">{t('attempts.loading')}</p>
       ) : attempts.length === 0 ? (
-        <EmptyState icon={<Users size={36} />} title="No results yet">
-          Results appear here after students finish this test.
+        <EmptyState icon={<Users size={36} />} title={t('attempts.emptyTitle')}>
+          {t('attempts.emptyBody')}
         </EmptyState>
       ) : (
         <div className="stack">
@@ -66,19 +67,17 @@ export const AttemptsReview: React.FC<{ test: TestDefinition; onBack: () => void
             {attempts.map((a) => (
               <button key={a.id} className="list-row" aria-current={a.id === selectedId} onClick={() => setSelectedId(a.id)}>
                 <div>
-                  <div className="title">{a.studentName ?? 'Student'}</div>
+                  <div className="title">{a.studentName ?? t('role.student')}</div>
                   <div className="sub">
                     <span>{a.studentEmail}</span>
                     <span>{formatDate(a.endTime ?? a.startTime)}</span>
                     <span>{formatDuration(a.durationSeconds)}</span>
                     {a.maxScore > 0 && (
-                      <span>
-                        {a.rawScore}/{a.maxScore} correct
-                      </span>
+                      <span>{t('common.correctCount', { raw: a.rawScore, max: a.maxScore })}</span>
                     )}
                   </div>
                 </div>
-                <div className="actions">{a.maxScore > 0 && <span className="badge badge-reading">Band {a.bandScore.toFixed(1)}</span>}</div>
+                <div className="actions">{a.maxScore > 0 && <span className="badge badge-reading">{t('common.band', { band: a.bandScore.toFixed(1) })}</span>}</div>
               </button>
             ))}
           </div>
@@ -99,7 +98,7 @@ export const AttemptsReview: React.FC<{ test: TestDefinition; onBack: () => void
                           <span className="q-num">{q.number}</span>
                           <div>
                             <div className="serif">{q.prompt}</div>
-                            {q.type === 'essay' && <div className="essay-response">{given || <span className="muted">No response</span>}</div>}
+                            {q.type === 'essay' && <div className="essay-response">{given || <span className="muted">{t('common.noResponse')}</span>}</div>}
                           </div>
                         </div>
                       );
@@ -112,30 +111,30 @@ export const AttemptsReview: React.FC<{ test: TestDefinition; onBack: () => void
                           {q.number}
                         </span>
                         <div>
-                          <div className="row" style={{ alignItems: 'flex-start' }}>
-                            <div className="serif" style={{ flex: 1 }}>
+                          <div className="row result-head" style={{ alignItems: 'flex-start' }}>
+                            <div className="serif result-prompt">
                               {q.prompt}
                             </div>
-                            <div className="override-toggle" role="group" aria-label={`Marking for question ${q.number}`}>
-                              <button aria-pressed={!status} onClick={() => setOverride(q.number, null)} title={`Automatic: ${auto ? 'correct' : 'wrong'}`}>
-                                Auto
+                            <div className="override-toggle" role="group" aria-label={t('attempts.markingFor', { n: q.number })}>
+                              <button aria-pressed={!status} onClick={() => setOverride(q.number, null)} title={t(auto ? 'attempts.autoCorrect' : 'attempts.autoWrong')}>
+                                {t('attempts.auto')}
                               </button>
                               <button aria-pressed={status === 'correct'} onClick={() => setOverride(q.number, 'correct')}>
-                                Correct
+                                {t('attempts.markCorrect')}
                               </button>
                               <button aria-pressed={status === 'incorrect'} onClick={() => setOverride(q.number, 'incorrect')}>
-                                Wrong
+                                {t('attempts.markWrong')}
                               </button>
                             </div>
                           </div>
                           <div className="answer-pair">
                             <span>
-                              <span className="label">Student: </span>
-                              {given ? <span className={correct ? 'right' : 'wrong'}>{given}</span> : <span className="muted">No answer</span>}
+                              <span className="label">{t('attempts.studentLabel')}</span>
+                              {given ? <span className={correct ? 'right' : 'wrong'}>{given}</span> : <span className="muted">{t('common.noAnswer')}</span>}
                             </span>
                             <span>
-                              <span className="label">Key: </span>
-                              {answerList(q.correctAnswer).join(' / ') || <span className="muted">none</span>}
+                              <span className="label">{t('attempts.keyLabel')}</span>
+                              {answerList(q.correctAnswer).join(' / ') || <span className="muted">{t('attempts.none')}</span>}
                             </span>
                           </div>
                         </div>

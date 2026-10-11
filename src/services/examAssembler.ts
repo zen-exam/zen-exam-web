@@ -7,6 +7,7 @@ import type {
 } from '../shared/exam';
 import type { KeyedText, PageBlock, PageExtraction } from '../shared/pageExtractionSchema';
 import { isAutoGraded } from '../shared/grading.ts';
+import { t } from '../i18n/index.ts';
 
 // Pure: merges per-page Gemini extractions into one TestDefinition per skill and checks
 // the result against IELTS rules. Listening and Reading both number 1-40, so they can't
@@ -19,8 +20,12 @@ export interface ExtractedPage {
   extraction: PageExtraction;
 }
 
+/** What kind of problem, independent of the (translated) message. */
+export type IssueCode = 'duplicate' | 'missing' | 'not_forty' | 'group_count' | 'no_answer' | 'bad_answer' | 'too_long';
+
 export interface AssemblyIssue {
   level: 'error' | 'warning';
+  code: IssueCode;
   skill: Skill;
   message: string;
   questionNumber?: number;
@@ -243,47 +248,47 @@ export function assembleTests(
 /** Rule checks that catch extraction mistakes before a teacher publishes. */
 export function validateTest(test: TestDefinition): AssemblyIssue[] {
   const issues: AssemblyIssue[] = [];
-  const add = (level: AssemblyIssue['level'], message: string, questionNumber?: number) =>
-    issues.push({ level, skill: test.skill, message, questionNumber });
+  const add = (level: AssemblyIssue['level'], code: IssueCode, message: string, questionNumber?: number) =>
+    issues.push({ level, code, skill: test.skill, message, questionNumber });
   if (test.skill === 'Writing' || test.skill === 'Speaking') return issues;
 
   const questions = test.sections.flatMap((s) => s.questions);
   const groups = new Map(test.sections.flatMap((s) => s.groups ?? []).map((g) => [g.id, g]));
   const seen = new Set<number>();
   for (const q of questions) {
-    if (seen.has(q.number)) add('error', `Question ${q.number} appears more than once`, q.number);
+    if (seen.has(q.number)) add('error', 'duplicate', t('issue.duplicate', { n: q.number }), q.number);
     seen.add(q.number);
   }
   const max = Math.max(0, ...seen);
-  for (let n = 1; n <= max; n++) if (!seen.has(n)) add('error', `Question ${n} is missing`, n);
-  if (max !== 40) add('warning', `Found ${seen.size} questions; a full ${test.skill} test has 40`);
+  for (let n = 1; n <= max; n++) if (!seen.has(n)) add('error', 'missing', t('issue.missing', { n }), n);
+  if (max !== 40) add('warning', 'not_forty', t('issue.notForty', { n: seen.size, skill: t(`skill.${test.skill}`) }));
 
   for (const g of groups.values()) {
     const count = questions.filter((q) => q.groupId === g.id).length;
     const expected = g.range[1] - g.range[0] + 1;
-    if (count !== expected) add('error', `Questions ${g.range[0]}-${g.range[1]}: expected ${expected} questions, found ${count}`, g.range[0]);
+    if (count !== expected) add('error', 'group_count', t('issue.groupCount', { from: g.range[0], to: g.range[1], expected, count }), g.range[0]);
   }
 
   for (const q of questions) {
     const answers = Array.isArray(q.correctAnswer) ? q.correctAnswer : [q.correctAnswer].filter(Boolean);
     if (!answers.length) {
-      add('warning', `Question ${q.number} has no answer`, q.number);
+      add('warning', 'no_answer', t('issue.noAnswer', { n: q.number }), q.number);
       continue;
     }
     const g = q.groupId ? groups.get(q.groupId) : undefined;
     const upper = answers.map((a) => a.toUpperCase());
     if (q.type === 'true_false_not_given' && upper.some((a) => !['TRUE', 'FALSE', 'NOT GIVEN'].includes(a)))
-      add('error', `Question ${q.number}: "${answers.join(' / ')}" is not TRUE/FALSE/NOT GIVEN`, q.number);
+      add('error', 'bad_answer', t('issue.notTfng', { n: q.number, answer: answers.join(' / ') }), q.number);
     if (q.type === 'yes_no_not_given' && upper.some((a) => !['YES', 'NO', 'NOT GIVEN'].includes(a)))
-      add('error', `Question ${q.number}: "${answers.join(' / ')}" is not YES/NO/NOT GIVEN`, q.number);
+      add('error', 'bad_answer', t('issue.notYnng', { n: q.number, answer: answers.join(' / ') }), q.number);
     if ((q.type === 'multiple_choice' || q.type === 'matching_headings') && q.options?.length) {
       const keys = q.options.map((o) => o.split('.')[0].trim().toUpperCase());
-      for (const a of upper) if (!keys.includes(a)) add('error', `Question ${q.number}: answer "${a}" is not one of the options ${keys.join(', ')}`, q.number);
+      for (const a of upper) if (!keys.includes(a)) add('error', 'bad_answer', t('issue.notOption', { n: q.number, answer: a, keys: keys.join(', ') }), q.number);
     }
     if (q.type === 'fill_in_the_blank' && g?.maxWords) {
       for (const a of answers) {
         const words = a.replace(/\([^)]*\)/g, ' ').split(/\s+/).filter((w) => w && !(g.allowNumber && /^[\d.,:/£$%-]+$/.test(w)));
-        if (words.length > g.maxWords) add('warning', `Question ${q.number}: "${a}" exceeds the ${g.maxWords}-word limit`, q.number);
+        if (words.length > g.maxWords) add('warning', 'too_long', t('issue.tooLong', { n: q.number, answer: a, max: g.maxWords }), q.number);
       }
     }
   }

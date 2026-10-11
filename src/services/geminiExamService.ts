@@ -10,6 +10,7 @@ import {
   type ExtractedPage,
 } from './examAssembler';
 import { api } from './api';
+import { t } from '../i18n';
 
 const MAX_SIDE = 2000; // px; plenty for reading a scan and for Gemini, and keeps photos well under the 5 MB upload limit
 
@@ -72,25 +73,25 @@ export async function digitizeWithGemini(opts: {
 
   // ponytail: sequential to stay inside free-tier requests/minute; the server retries 429/503
   for (const [i, { img, isKey }] of all.entries()) {
-    const label = isKey ? `Answer key ${i - opts.pageImages.length + 1}` : `Page ${i + 1} of ${opts.pageImages.length}`;
-    onProgress(5 + Math.round((i / all.length) * 80), `Reading ${label.toLowerCase()}…`);
+    const label = isKey ? t('gemini.answerKeyN', { n: i - opts.pageImages.length + 1 }) : t('gemini.pageOf', { n: i + 1, total: opts.pageImages.length });
+    onProgress(5 + Math.round((i / all.length) * 80), t('gemini.reading', { label: label.toLowerCase() }));
     try {
       const { data } = await extractPage(img);
       (isKey ? keyPages : pages).push({ imageUrl: img, extraction: data });
       const found = data.blocks.flatMap((b) =>
         b.type === 'question_group' && b.rangeStart
-          ? [`questions ${b.rangeStart}–${b.rangeEnd}`]
+          ? [t('gemini.foundQuestions', { from: b.rangeStart, to: b.rangeEnd ?? b.rangeStart })]
           : b.type === 'passage'
-            ? ['passage text']
+            ? [t('gemini.foundPassage')]
             : b.type === 'answer_key'
-              ? [`${b.answers?.length ?? 0} answers`]
+              ? [t('gemini.foundAnswers', { n: b.answers?.length ?? 0 })]
               : b.type === 'writing_task' || b.type === 'speaking_part'
-                ? [b.type === 'writing_task' ? 'a writing task' : 'speaking questions']
+                ? [t(b.type === 'writing_task' ? 'gemini.foundWriting' : 'gemini.foundSpeaking')]
                 : []
       );
-      onLog('success', `${label}: ${found.length ? [...new Set(found)].join(', ') : 'nothing to use (cover or blank page)'}`);
+      onLog('success', t('gemini.pageResult', { label, found: found.length ? [...new Set(found)].join(', ') : t('gemini.nothing') }));
     } catch (err) {
-      onLog('error', `${label}: couldn't be read (${err instanceof Error ? err.message : err})`);
+      onLog('error', t('gemini.pageError', { label, error: err instanceof Error ? err.message : String(err) }));
     }
   }
 
@@ -98,9 +99,9 @@ export async function digitizeWithGemini(opts: {
   const answerKeyText = opts.answerKeyText?.trim() || formatAnswerKeyText([...keyPages, ...pages]);
   const key = parseAnswerKeyText(answerKeyText);
   const keyCount = [...key.values()].reduce((n, m) => n + m.size, 0);
-  if (keyCount) onLog('info', `Answer key: ${keyCount} answers found`);
+  if (keyCount) onLog('info', t('gemini.keyFound', { n: keyCount }));
 
-  onProgress(88, 'Putting the test together…');
+  onProgress(88, t('gemini.assembling'));
   const { tests } = assembleTests(pages, key, {
     fileName: opts.fileName,
     format: opts.format,
@@ -110,7 +111,7 @@ export async function digitizeWithGemini(opts: {
   // No key entry: Reading answers can be inferred from the passage; Listening needs the audio
   for (const test of tests.filter((t) => t.skill === 'Reading')) {
     for (const { section, questions } of unansweredBySection(test)) {
-      onProgress(92, `Working out ${questions.length} missing answers for ${section.title}…`);
+      onProgress(92, t('gemini.solving', { n: questions.length, section: section.title }));
       try {
         const groups = new Map(section.groups?.map((g) => [g.id, g]));
         const { data } = await api.solve<{ answers: { number: number; answer: string; evidence: string }[] }>(
@@ -127,9 +128,9 @@ export async function digitizeWithGemini(opts: {
           q.explanation = a.evidence;
           q.needsReview = true;
         }
-        onLog('warning', `${section.title}: ${data.answers.length} answers worked out from the passage (no key). Please check them.`);
+        onLog('warning', t('gemini.solved', { section: section.title, n: data.answers.length }));
       } catch (err) {
-        onLog('error', `${section.title}: couldn't work out the missing answers (${err instanceof Error ? err.message : err})`);
+        onLog('error', t('gemini.solveError', { section: section.title, error: err instanceof Error ? err.message : String(err) }));
       }
     }
   }

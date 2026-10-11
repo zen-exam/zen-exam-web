@@ -5,6 +5,7 @@ import { scoreAttempt } from '../../shared/grading';
 import { assetUrl } from '../../services/api';
 import { Modal, SkillBadge } from '../common/ui';
 import { sectionLabel } from '../common/format';
+import { t, tNode } from '../../i18n';
 
 const HIGHLIGHTS = ['#fde68a', '#bbf7d0', '#bfdbfe'];
 
@@ -135,32 +136,32 @@ export const ExamSession: React.FC<{
     return (
       <div className="page">
         <button className="back-link" onClick={onExit}>
-          <ArrowLeft size={16} /> Back
+          <ArrowLeft size={16} /> {t('common.back')}
         </button>
         <div className="card start-card">
           <SkillBadge skill={test.skill} />
           <h1 style={{ marginTop: 12 }}>{test.title}</h1>
           <div className="facts">
             <div className="stat">
-              <strong>{test.timeLimitMinutes} min</strong>
-              <span>Time</span>
+              <strong>{t('common.minutes', { n: test.timeLimitMinutes })}</strong>
+              <span>{t('exam.time')}</span>
             </div>
             <div className="stat">
               <strong>{allQuestions.length}</strong>
-              <span>{test.skill === 'Writing' ? 'Tasks' : 'Questions'}</span>
+              <span>{test.skill === 'Writing' ? t('exam.tasks') : t('exam.questions')}</span>
             </div>
             <div className="stat">
               <strong>{test.sections.length}</strong>
-              <span>{test.skill === 'Reading' ? 'Passages' : 'Parts'}</span>
+              <span>{test.skill === 'Reading' ? t('exam.passages') : t('exam.parts')}</span>
             </div>
           </div>
           <ul className="muted" style={{ textAlign: 'left', margin: '0 auto 24px', maxWidth: 400, paddingLeft: 18 }}>
-            <li>The timer starts when you press Start.</li>
-            <li>Flag any question to come back to it later.</li>
-            <li>When time runs out, your answers are submitted automatically.</li>
+            <li>{t('exam.rule1')}</li>
+            <li>{t('exam.rule2')}</li>
+            <li>{t('exam.rule3')}</li>
           </ul>
           <button className="btn btn-primary btn-lg" onClick={() => setStarted(true)}>
-            Start test
+            {t('home.startTest')}
           </button>
         </div>
       </div>
@@ -175,7 +176,7 @@ export const ExamSession: React.FC<{
       case 'yes_no_not_given': {
         const opts = q.type === 'true_false_not_given' ? ['TRUE', 'FALSE', 'NOT GIVEN'] : ['YES', 'NO', 'NOT GIVEN'];
         return (
-          <div className="segmented" role="group" aria-label={`Answer for question ${q.number}`}>
+          <div className="segmented" role="group" aria-label={t('exam.answerFor', { n: q.number })}>
             {opts.map((o) => (
               <button key={o} aria-pressed={value === o} onClick={() => set(o)}>
                 {o}
@@ -201,8 +202,8 @@ export const ExamSession: React.FC<{
       case 'matching_headings':
         if (q.options?.length)
           return (
-            <select className="select answer-input" value={value} onChange={(e) => set(e.target.value)} aria-label={`Answer for question ${q.number}`}>
-              <option value="">Choose an answer…</option>
+            <select className="select answer-input" value={value} onChange={(e) => set(e.target.value)} aria-label={t('exam.answerFor', { n: q.number })}>
+              <option value="">{t('exam.chooseAnswer')}</option>
               {q.options.map((opt) => (
                 <option key={opt} value={opt.split('.')[0].trim()}>
                   {opt}
@@ -218,22 +219,22 @@ export const ExamSession: React.FC<{
               className="textarea essay-input"
               value={value}
               onChange={(e) => set(e.target.value)}
-              placeholder="Write your response here…"
-              aria-label={`Response for ${q.prompt}`}
+              placeholder={t('exam.writeHere')}
+              aria-label={t('exam.responseFor', { prompt: q.prompt })}
             />
-            <span className="hint">{value.trim() ? value.trim().split(/\s+/).length : 0} words</span>
+            <span className="hint">{t('exam.words', { n: value.trim() ? value.trim().split(/\s+/).length : 0 })}</span>
           </div>
         );
       case 'speaking':
-        return <p className="hint">Answer this question aloud.</p>;
+        return <p className="hint">{t('exam.speakAloud')}</p>;
     }
     return (
       <input
         className="input answer-input"
         value={value}
         onChange={(e) => set(e.target.value)}
-        placeholder="Your answer"
-        aria-label={`Answer for question ${q.number}`}
+        placeholder={t('exam.yourAnswer')}
+        aria-label={t('exam.answerFor', { n: q.number })}
       />
     );
   };
@@ -241,23 +242,23 @@ export const ExamSession: React.FC<{
   return (
     <div className="exam">
       <header className="exam-top">
-        <button className="icon-btn" onClick={() => setConfirm('exit')} aria-label="Leave test">
+        <button className="icon-btn" onClick={() => setConfirm('exit')} aria-label={t('exam.leave')}>
           <ArrowLeft size={18} />
         </button>
         <span className="title">{test.title}</span>
         <span className="spacer" />
-        <span className="timer" data-low={secondsLeft < 300} aria-label="Time remaining">
+        <span className="timer" data-low={secondsLeft < 300} aria-label={t('exam.timeRemaining')}>
           <Clock size={15} aria-hidden /> {formatClock(secondsLeft)}
         </span>
         <button className="btn btn-success" onClick={() => setConfirm('submit')}>
-          Finish test
+          {t('exam.finish')}
         </button>
       </header>
 
       <div className="exam-body">
         {hasPassage && (
           <>
-            <section className="exam-pane" style={{ width: `${split}%` }} aria-label="Passage">
+            <section className="exam-pane" style={{ width: `${split}%` }} aria-label={t('exam.passage')}>
               <div className="exam-tools">
                 {test.sections.length > 1 && (
                   <div className="tabs" role="tablist" style={{ border: 0, marginRight: 8 }}>
@@ -279,8 +280,8 @@ export const ExamSession: React.FC<{
                   className="icon-btn"
                   aria-pressed={highlighting}
                   onClick={() => setHighlighting((h) => !h)}
-                  title="Highlighter: select text to mark it"
-                  aria-label="Highlighter"
+                  title={t('exam.highlighterTitle')}
+                  aria-label={t('exam.highlighter')}
                 >
                   <Highlighter size={16} />
                 </button>
@@ -292,16 +293,16 @@ export const ExamSession: React.FC<{
                       style={{ background: c }}
                       aria-pressed={color === c}
                       onClick={() => setColor(c)}
-                      aria-label="Highlight colour"
+                      aria-label={t('exam.highlightColour')}
                     />
                   ))}
-                <button className="icon-btn" onClick={clearHighlights} title="Remove highlights" aria-label="Remove highlights">
+                <button className="icon-btn" onClick={clearHighlights} title={t('exam.removeHighlights')} aria-label={t('exam.removeHighlights')}>
                   <Eraser size={16} />
                 </button>
-                <button className="icon-btn" onClick={() => setFontSize((f) => Math.max(14, f - 1))} aria-label="Smaller text">
+                <button className="icon-btn" onClick={() => setFontSize((f) => Math.max(14, f - 1))} aria-label={t('exam.smallerText')}>
                   <AArrowDown size={16} />
                 </button>
-                <button className="icon-btn" onClick={() => setFontSize((f) => Math.min(24, f + 1))} aria-label="Larger text">
+                <button className="icon-btn" onClick={() => setFontSize((f) => Math.min(24, f + 1))} aria-label={t('exam.largerText')}>
                   <AArrowUp size={16} />
                 </button>
               </div>
@@ -315,7 +316,7 @@ export const ExamSession: React.FC<{
                 <span className="badge">{sectionLabel(test.skill, section.sectionNumber)}</span>
                 <h2>{section.title}</h2>
                 {!section.groups?.length && section.instructions && <p className="muted small">{section.instructions}</p>}
-                {section.figureImage && <img className="figure" src={assetUrl(section.figureImage)} alt="Figure for this task" />}
+                {section.figureImage && <img className="figure" src={assetUrl(section.figureImage)} alt={t('exam.figureAlt')} />}
                 {section.content.split('\n\n').map((para, i) => {
                   const tag = para.match(/^(?:\[([A-J])\]|([A-J])\.)\s/);
                   return (
@@ -331,7 +332,7 @@ export const ExamSession: React.FC<{
           </>
         )}
 
-        <section className="exam-pane qsheet" style={hasPassage ? { width: `${100 - split}%` } : undefined} aria-label="Questions">
+        <section className="exam-pane qsheet" style={hasPassage ? { width: `${100 - split}%` } : undefined} aria-label={t('exam.questions')}>
           {!hasPassage && test.sections.length > 1 && (
             <div className="tabs" role="tablist" style={{ marginBottom: 16 }}>
               {test.sections.map((s, i) => (
@@ -345,10 +346,7 @@ export const ExamSession: React.FC<{
             <div key={group?.id ?? gi} className="qgroup">
               {group && (
                 <div className="qgroup-head">
-                  <h3>
-                    Questions {group.range[0]}
-                    {group.range[1] !== group.range[0] && `–${group.range[1]}`}
-                  </h3>
+                  <h3>{t('common.questionsRange', { range: group.range[1] !== group.range[0] ? `${group.range[0]}–${group.range[1]}` : group.range[0] })}</h3>
                   {group.instructions && <div className="instructions">{group.instructions.replace(/^Questions?\s+\d+.*\n/i, '')}</div>}
                   {group.kind === 'matching' && group.options && (
                     <div className="context">
@@ -372,8 +370,8 @@ export const ExamSession: React.FC<{
                         className="flag-btn"
                         aria-pressed={!!answers[q.number]?.flagged}
                         onClick={() => update(q.number, { flagged: !answers[q.number]?.flagged })}
-                        aria-label={`Flag question ${q.number} to review`}
-                        title="Flag to review later"
+                        aria-label={t('exam.flagQuestion', { n: q.number })}
+                        title={t('exam.flagTitle')}
                       >
                         <Flag size={16} />
                       </button>
@@ -387,7 +385,7 @@ export const ExamSession: React.FC<{
         </section>
       </div>
 
-      <nav className="palette" aria-label="Question navigator">
+      <nav className="palette" aria-label={t('exam.navigator')}>
         {test.sections.map((s) => (
           <div key={s.id} className="palette-group">
             {test.sections.length > 1 && <span className="label small muted">{sectionLabel(test.skill, s.sectionNumber)}</span>}
@@ -399,7 +397,7 @@ export const ExamSession: React.FC<{
                 data-flagged={!!answers[q.number]?.flagged}
                 aria-current={activeQ === q.number}
                 onClick={() => goTo(q.number)}
-                aria-label={`Question ${q.number}`}
+                aria-label={t('exam.questionN', { n: q.number })}
               >
                 {q.number}
               </button>
@@ -407,23 +405,23 @@ export const ExamSession: React.FC<{
           </div>
         ))}
         <div className="palette-legend">
-          <span>{answered} answered</span>
-          <span>{allQuestions.length - answered} left</span>
-          {flagged > 0 && <span>{flagged} flagged</span>}
+          <span>{t('exam.answered', { n: answered })}</span>
+          <span>{t('exam.left', { n: allQuestions.length - answered })}</span>
+          {flagged > 0 && <span>{t('exam.flagged', { n: flagged })}</span>}
         </div>
       </nav>
 
       {confirm === 'submit' && (
         <Modal
-          title="Finish the test?"
+          title={t('exam.finishTitle')}
           onClose={() => setConfirm(null)}
           footer={
             <>
               <button className="btn btn-secondary" onClick={() => setConfirm(null)}>
-                Keep working
+                {t('exam.keepWorking')}
               </button>
               <button className="btn btn-success" onClick={submit} disabled={submitting}>
-                {submitting ? 'Submitting…' : submitError ? 'Try again' : 'Submit answers'}
+                {submitting ? t('exam.submitting') : submitError ? t('common.tryAgain') : t('exam.submitAnswers')}
               </button>
             </>
           }
@@ -431,18 +429,16 @@ export const ExamSession: React.FC<{
           {submitError && (
             <div className="alert alert-danger" style={{ marginBottom: 12 }}>
               <AlertTriangle size={16} />
-              <span>Your answers weren't sent: {submitError}. They're still here — try again.</span>
+              <span>{t('exam.notSent', { error: submitError })}</span>
             </div>
           )}
-          <p>
-            You answered <strong>{answered}</strong> of <strong>{allQuestions.length}</strong>.
-          </p>
+          <p>{tNode('exam.answeredOf', { n: <strong>{answered}</strong>, total: <strong>{allQuestions.length}</strong> })}</p>
           {(allQuestions.length - answered > 0 || flagged > 0) && (
             <div className="alert alert-warning" style={{ marginTop: 12 }}>
               <AlertTriangle size={16} />
               <span>
-                {allQuestions.length - answered > 0 && `${allQuestions.length - answered} unanswered. `}
-                {flagged > 0 && `${flagged} flagged for review.`}
+                {allQuestions.length - answered > 0 && `${t('exam.unanswered', { n: allQuestions.length - answered })} `}
+                {flagged > 0 && t('exam.flaggedForReview', { n: flagged })}
               </span>
             </div>
           )}
@@ -450,20 +446,20 @@ export const ExamSession: React.FC<{
       )}
       {confirm === 'exit' && (
         <Modal
-          title="Leave this test?"
+          title={t('exam.leaveTitle')}
           onClose={() => setConfirm(null)}
           footer={
             <>
               <button className="btn btn-secondary" onClick={() => setConfirm(null)}>
-                Stay
+                {t('exam.stay')}
               </button>
               <button className="btn btn-danger" onClick={onExit}>
-                Leave without saving
+                {t('exam.leaveWithoutSaving')}
               </button>
             </>
           }
         >
-          Your answers won't be saved.
+          {t('exam.notSaved')}
         </Modal>
       )}
     </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Plus, Trash2, AlertTriangle, CheckCircle2, Sparkles, FileImage } from 'lucide-react';
 import type { PassageSection, Question, QuestionGroup, QuestionKind, QuestionType, TestDefinition } from '../../shared/exam';
 import { validateTest, type AssemblyIssue } from '../../services/examAssembler';
@@ -6,16 +6,8 @@ import { isAutoGraded } from '../../shared/grading';
 import { api, assetUrl } from '../../services/api';
 import { Modal, SkillBadge } from '../common/ui';
 import { answerList, sectionLabel } from '../common/format';
+import { t, tNode } from '../../i18n';
 
-const KIND_LABEL: Record<QuestionKind, string> = {
-  gap_fill: 'Gap fill (notes, summary, table)',
-  short_answer: 'Short answer',
-  true_false_not_given: 'True / False / Not given',
-  yes_no_not_given: 'Yes / No / Not given',
-  mcq_single: 'Multiple choice (one answer)',
-  mcq_multi: 'Multiple choice (choose two or more)',
-  matching: 'Matching (headings, features, endings)',
-};
 const KIND_TYPE: Record<QuestionKind, QuestionType> = {
   gap_fill: 'fill_in_the_blank',
   short_answer: 'fill_in_the_blank',
@@ -25,13 +17,8 @@ const KIND_TYPE: Record<QuestionKind, QuestionType> = {
   mcq_multi: 'multiple_choice',
   matching: 'matching_headings',
 };
-const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
-  fill_in_the_blank: 'Gap fill / short answer',
-  true_false_not_given: 'True / False / Not given',
-  yes_no_not_given: 'Yes / No / Not given',
-  multiple_choice: 'Multiple choice',
-  matching_headings: 'Matching',
-};
+// Question types a teacher can pick for an ungrouped question (labels in i18n as type.*)
+const PICKABLE_TYPES = ['fill_in_the_blank', 'true_false_not_given', 'yes_no_not_given', 'multiple_choice', 'matching_headings'] as const;
 
 /** Edits as free text; parses on blur so typing "C / " isn't cut short. */
 const CommitInput: React.FC<{
@@ -110,17 +97,19 @@ export const TestEditor: React.FC<{
   // The answer key is shown after the exam pages; sourcePage indexes stay valid
   const pages = keyImage ? [...examPages, keyImage] : examPages;
   const onKey = Boolean(keyImage) && page === examPages.length;
-  const issues = useMemo(() => validateTest(test), [test]);
+  const issues = validateTest(test); // not memoised: messages follow the current language
   const errorsAll = tests.flatMap(validateTest).filter((i) => i.level === 'error');
   // One line each for missing / unanswered questions instead of one per question
-  const missing = issues.filter((i) => i.message.endsWith('is missing'));
-  const unanswered = issues.filter((i) => i.message.endsWith('has no answer'));
-  const summary = (list: AssemblyIssue[], text: string): AssemblyIssue[] =>
-    list.length ? [{ ...list[0], message: `${text} (${ranges(list.map((i) => i.questionNumber!))})` }] : [];
+  const missing = issues.filter((i) => i.code === 'missing');
+  const unanswered = issues.filter((i) => i.code === 'no_answer');
+  const summary = (list: AssemblyIssue[], one: 'editor.missingOne' | 'editor.noAnswerOne', many: 'editor.missingMany' | 'editor.noAnswerMany'): AssemblyIssue[] =>
+    list.length
+      ? [{ ...list[0], message: t(list.length === 1 ? one : many, { n: list.length, list: ranges(list.map((i) => i.questionNumber!)) }) }]
+      : [];
   const shownIssues: AssemblyIssue[] = [
-    ...summary(missing, `${missing.length} question${missing.length > 1 ? 's are' : ' is'} missing. Upload the pages they're on, or add them`),
+    ...summary(missing, 'editor.missingOne', 'editor.missingMany'),
     ...issues.filter((i) => i.level === 'error' && !missing.includes(i)),
-    ...summary(unanswered, `${unanswered.length} question${unanswered.length > 1 ? 's have' : ' has'} no answer yet`),
+    ...summary(unanswered, 'editor.noAnswerOne', 'editor.noAnswerMany'),
     ...issues.filter((i) => i.level === 'warning' && !unanswered.includes(i)),
   ];
   const exists = (n?: number) => n !== undefined && test.sections.some((s) => s.questions.some((q) => q.number === n));
@@ -158,7 +147,8 @@ export const TestEditor: React.FC<{
     requestAnimationFrame(() => {
       const el = document.getElementById(`edit-q-${issue.questionNumber}`);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const field = issue.message.includes('answer') ? `[aria-label="Question ${issue.questionNumber} answer"]` : 'input, textarea';
+      const answerIssue = issue.code === 'no_answer' || issue.code === 'bad_answer' || issue.code === 'too_long';
+      const field = answerIssue ? `[aria-label="${t('editor.questionAnswer', { n: issue.questionNumber! })}"]` : 'input, textarea';
       (el?.querySelector<HTMLElement>(field) ?? el?.querySelector<HTMLElement>('input, textarea'))?.focus();
     });
   };
@@ -174,9 +164,9 @@ export const TestEditor: React.FC<{
       }
       setTests(saved);
       setDirty(false);
-      const names = saved.map((t) => t.skill).join(' & ');
-      if (publish) onSaved(`Published ${names}. Students can take it now.`);
-      else if (allPublished) onSaved('Changes saved');
+      const names = saved.map((x) => t(`skill.${x.skill}`)).join(' & ');
+      if (publish) onSaved(t('editor.publishedToast', { names }));
+      else if (allPublished) onSaved(t('editor.changesSaved'));
       else setSavedNote(true); // stay in the editor after saving a draft
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -186,11 +176,11 @@ export const TestEditor: React.FC<{
   };
 
   const leave = () => {
-    if (!dirty || window.confirm('Leave without saving your changes?')) onBack();
+    if (!dirty || window.confirm(t('editor.leaveConfirm'))) onBack();
   };
 
   const kindOf = (s: PassageSection) => (s.groups?.length ? s.groups : [undefined]);
-  const contentLabel = { Reading: 'Passage text', Listening: 'Notes / form text', Writing: 'Task prompt', Speaking: 'Questions' }[test.skill];
+  const contentLabel = t(`editor.content.${test.skill}`);
 
   const questionRow = (q: Question, group?: QuestionGroup) => {
     const issue = issues.find((i) => i.questionNumber === q.number && i.level === 'error');
@@ -201,12 +191,12 @@ export const TestEditor: React.FC<{
         </span>
         <div className="stack-sm">
           <div className="q-fields" style={isAutoGraded(q) ? undefined : { gridTemplateColumns: 'minmax(0,1fr) auto' }}>
-            <CommitInput multiline label={`Question ${q.number} text`} value={q.prompt} onCommit={(v) => mutateQuestion(q.number, (x) => (x.prompt = v))} />
+            <CommitInput multiline label={t('editor.questionText', { n: q.number })} value={q.prompt} onCommit={(v) => mutateQuestion(q.number, (x) => (x.prompt = v))} />
             {isAutoGraded(q) && (
               <div className="field">
                 <CommitInput
-                  label={`Question ${q.number} answer`}
-                  placeholder="Correct answer"
+                  label={t('editor.questionAnswer', { n: q.number })}
+                  placeholder={t('editor.correctAnswer')}
                   value={answerList(q.correctAnswer).join(' / ')}
                   onCommit={(v) =>
                     mutateQuestion(q.number, (x) => {
@@ -217,20 +207,20 @@ export const TestEditor: React.FC<{
                 />
                 {q.needsReview && (
                   <span className="badge badge-warning" title={q.explanation}>
-                    <Sparkles size={11} aria-hidden /> Worked out by AI — check
+                    <Sparkles size={11} aria-hidden /> {t('editor.aiCheck')}
                   </span>
                 )}
               </div>
             )}
-            <button className="icon-btn" aria-label={`Delete question ${q.number}`} title="Delete question" onClick={() => mutateSection((s) => (s.questions = s.questions.filter((x) => x.number !== q.number)))}>
+            <button className="icon-btn" aria-label={t('editor.deleteQuestion', { n: q.number })} title={t('editor.deleteQuestionTitle')} onClick={() => mutateSection((s) => (s.questions = s.questions.filter((x) => x.number !== q.number)))}>
               <Trash2 size={16} />
             </button>
           </div>
           {!group && isAutoGraded(q) && (
-            <select className="select" style={{ maxWidth: 260 }} value={q.type} aria-label={`Question ${q.number} type`} onChange={(e) => mutateQuestion(q.number, (x) => (x.type = e.target.value as QuestionType))}>
-              {Object.entries(TYPE_LABEL).map(([v, l]) => (
+            <select className="select" style={{ maxWidth: 260 }} value={q.type} aria-label={t('editor.questionType', { n: q.number })} onChange={(e) => mutateQuestion(q.number, (x) => (x.type = e.target.value as QuestionType))}>
+              {PICKABLE_TYPES.map((v) => (
                 <option key={v} value={v}>
-                  {l}
+                  {t(`type.${v}`)}
                 </option>
               ))}
             </select>
@@ -239,8 +229,8 @@ export const TestEditor: React.FC<{
             <CommitInput
               multiline
               rows={4}
-              label={`Question ${q.number} options`}
-              placeholder={'One option per line\nA. …\nB. …'}
+              label={t('editor.questionOptions', { n: q.number })}
+              placeholder={t('editor.optionsPlaceholder')}
               value={(q.options ?? []).join('\n')}
               onCommit={(v) => mutateQuestion(q.number, (x) => (x.options = v.split('\n').map((o) => o.trim()).filter(Boolean)))}
             />
@@ -254,7 +244,7 @@ export const TestEditor: React.FC<{
   return (
     <div className="page" style={{ paddingTop: 20 }}>
       <button className="back-link" onClick={leave}>
-        <ArrowLeft size={16} /> Your tests
+        <ArrowLeft size={16} /> {t('teacher.title')}
       </button>
       {header}
 
@@ -264,22 +254,22 @@ export const TestEditor: React.FC<{
           className="input input-title"
           style={{ flex: 1, minWidth: 200 }}
           value={test.title}
-          aria-label="Test title"
+          aria-label={t('editor.testTitle')}
           onChange={(e) => mutate((t) => (t.title = e.target.value))}
         />
-        {dirty && <span className="muted small">Unsaved changes</span>}
-        {savedNote && !dirty && <span className="small" style={{ color: 'var(--success)' }}>Draft saved</span>}
+        {dirty && <span className="muted small">{t('editor.unsaved')}</span>}
+        {savedNote && !dirty && <span className="small" style={{ color: 'var(--success)' }}>{t('editor.draftSaved')}</span>}
         {allPublished ? (
           <button className="btn btn-primary" disabled={saving} onClick={() => save(false)}>
-            Save changes
+            {t('editor.saveChanges')}
           </button>
         ) : (
           <>
             <button className="btn btn-secondary" disabled={saving} onClick={() => save(false)}>
-              Save draft
+              {t('editor.saveDraft')}
             </button>
             <button className="btn btn-primary" disabled={saving} onClick={() => (errorsAll.length ? setConfirmPublish(true) : save(true))}>
-              Publish{tests.length > 1 ? ` ${tests.length} tests` : ''}
+              {tests.length > 1 ? t('editor.publishN', { n: tests.length }) : t('editor.publish')}
             </button>
           </>
         )}
@@ -287,9 +277,9 @@ export const TestEditor: React.FC<{
 
       {tests.length > 1 && (
         <div className="tabs" role="tablist" style={{ marginTop: 12 }}>
-          {tests.map((t, i) => (
+          {tests.map((x, i) => (
             <button
-              key={t.id}
+              key={x.id}
               role="tab"
               className="tab"
               aria-selected={i === testIdx}
@@ -298,7 +288,7 @@ export const TestEditor: React.FC<{
                 setSectionIdx(0);
               }}
             >
-              {t.skill} <span className="muted">({t.totalQuestions})</span>
+              {t(`skill.${x.skill}`)} <span className="muted">({x.totalQuestions})</span>
             </button>
           ))}
         </div>
@@ -307,27 +297,25 @@ export const TestEditor: React.FC<{
       <div style={{ marginTop: 16 }}>
         {error && (
           <div className="alert alert-danger" style={{ marginBottom: 12 }}>
-            <AlertTriangle size={16} /> Couldn't save: {error}
+            <AlertTriangle size={16} /> {t('editor.saveError', { error })}
           </div>
         )}
         {issues.length ? (
           <div className={`alert ${issues.some((i) => i.level === 'error') ? 'alert-warning' : 'alert-info'}`}>
             <AlertTriangle size={16} />
             <div>
-              <strong>
-                {shownIssues.length} {shownIssues.length === 1 ? 'thing' : 'things'} to check
-              </strong>
+              <strong>{shownIssues.length === 1 ? t('editor.toCheckOne') : t('editor.toCheckMany', { n: shownIssues.length })}</strong>
               <ul className="issue-list">
                 {shownIssues.slice(0, 8).map((i, k) => (
                   <li key={k}>{exists(i.questionNumber) ? <button onClick={() => goToIssue(i)}>{i.message}</button> : i.message}</li>
                 ))}
-                {shownIssues.length > 8 && <li>…and {shownIssues.length - 8} more</li>}
+                {shownIssues.length > 8 && <li>{t('editor.more', { n: shownIssues.length - 8 })}</li>}
               </ul>
             </div>
           </div>
         ) : (
           <div className="alert alert-success">
-            <CheckCircle2 size={16} /> Everything checks out: questions are numbered correctly and every answer fits its question.
+            <CheckCircle2 size={16} /> {t('editor.allGood')}
           </div>
         )}
       </div>
@@ -345,30 +333,30 @@ export const TestEditor: React.FC<{
 
       <div className="editor" style={pages.length ? undefined : { gridTemplateColumns: '1fr' }}>
         {pages.length > 0 && (
-          <aside className="page-viewer" aria-label="Original pages">
+          <aside className="page-viewer" aria-label={t('editor.originalPages')}>
             <div className="row">
-              <button className="icon-btn" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
+              <button className="icon-btn" disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label={t('editor.prevPage')}>
                 <ChevronLeft size={18} />
               </button>
-              <span className="small">{onKey ? 'Answer key' : `Page ${page + 1} of ${examPages.length}`}</span>
-              <button className="icon-btn" disabled={page >= pages.length - 1} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
+              <span className="small">{onKey ? t('common.answerKey') : t('editor.pageOf', { n: page + 1, total: examPages.length })}</span>
+              <button className="icon-btn" disabled={page >= pages.length - 1} onClick={() => setPage((p) => p + 1)} aria-label={t('editor.nextPage')}>
                 <ChevronRight size={18} />
               </button>
               <span className="spacer" />
               {keyImage && (
                 <button className="btn btn-ghost btn-sm" onClick={() => setPage(onKey ? 0 : examPages.length)}>
-                  {onKey ? 'Exam pages' : 'Answer key'}
+                  {onKey ? t('editor.examPages') : t('common.answerKey')}
                 </button>
               )}
-              <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))} aria-label="Zoom out">
+              <button className="icon-btn" onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))} aria-label={t('editor.zoomOut')}>
                 <ZoomOut size={16} />
               </button>
-              <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.4, z + 0.2))} aria-label="Zoom in">
+              <button className="icon-btn" onClick={() => setZoom((z) => Math.min(2.4, z + 0.2))} aria-label={t('editor.zoomIn')}>
                 <ZoomIn size={16} />
               </button>
             </div>
             <div className="frame">
-              <PageImage key={pages[page]} src={pages[page]} alt={onKey ? 'Answer key' : `Original page ${page + 1}`} zoom={zoom} />
+              <PageImage key={pages[page]} src={pages[page]} alt={onKey ? t('common.answerKey') : t('editor.originalPage', { n: page + 1 })} zoom={zoom} />
             </div>
           </aside>
         )}
@@ -376,17 +364,17 @@ export const TestEditor: React.FC<{
         <div className="stack">
           <div className="card card-body stack">
             <div className="field">
-              <span className="label">{sectionLabel(test.skill, section.sectionNumber)} title</span>
-              <CommitInput label="Section title" value={section.title} onCommit={(v) => mutateSection((s) => (s.title = v))} />
+              <span className="label">{t('editor.sectionTitle', { section: sectionLabel(test.skill, section.sectionNumber) })}</span>
+              <CommitInput label={t('editor.sectionTitleAria')} value={section.title} onCommit={(v) => mutateSection((s) => (s.title = v))} />
             </div>
             {section.figureImage && (
               <div className="row small muted">
-                <FileImage size={14} /> This task includes a chart or picture from the paper.
+                <FileImage size={14} /> {t('editor.hasFigure')}
               </div>
             )}
             <details className="disclosure" open={test.skill === 'Writing' || test.skill === 'Speaking'}>
               <summary>
-                {contentLabel} ({section.content.trim() ? section.content.trim().split(/\s+/).length : 0} words)
+                {t('editor.wordCount', { label: contentLabel, n: section.content.trim() ? section.content.trim().split(/\s+/).length : 0 })}
               </summary>
               <CommitInput multiline rows={12} className="serif" label={contentLabel} value={section.content} onCommit={(v) => mutateSection((s) => (s.content = v))} />
             </details>
@@ -404,14 +392,12 @@ export const TestEditor: React.FC<{
                 {group ? (
                   <>
                     <div className="group-head">
-                      <h3>
-                        Questions {group.range[0]}–{group.range[1]}
-                      </h3>
+                      <h3>{t('common.questionsRange', { range: `${group.range[0]}–${group.range[1]}` })}</h3>
                       <select
                         className="select"
                         style={{ width: 'auto' }}
                         value={group.kind}
-                        aria-label="Question type"
+                        aria-label={t('editor.questionTypeAria')}
                         onChange={(e) =>
                           mutateGroup(group.id, (g, s) => {
                             g.kind = e.target.value as QuestionKind;
@@ -419,31 +405,31 @@ export const TestEditor: React.FC<{
                           })
                         }
                       >
-                        {Object.entries(KIND_LABEL).map(([v, l]) => (
+                        {(Object.keys(KIND_TYPE) as QuestionKind[]).map((v) => (
                           <option key={v} value={v}>
-                            {l}
+                            {t(`kind.${v}`)}
                           </option>
                         ))}
                       </select>
                       <span className="spacer" />
                       {group.sourcePage !== undefined && (
                         <button className="btn btn-ghost btn-sm" onClick={() => setPage(group.sourcePage!)}>
-                          Show page {group.sourcePage + 1}
+                          {t('editor.showPage', { n: group.sourcePage + 1 })}
                         </button>
                       )}
                     </div>
                     <div className="field">
-                      <span className="label">Instructions</span>
-                      <CommitInput multiline label="Instructions" value={group.instructions} onCommit={(v) => mutateGroup(group.id, (g) => (g.instructions = v))} />
+                      <span className="label">{t('editor.instructions')}</span>
+                      <CommitInput multiline label={t('editor.instructions')} value={group.instructions} onCommit={(v) => mutateGroup(group.id, (g) => (g.instructions = v))} />
                     </div>
                     {(group.kind === 'matching' || group.kind === 'mcq_multi' || group.options?.length) && (
                       <div className="field">
-                        <span className="label">Options students choose from</span>
+                        <span className="label">{t('editor.groupOptions')}</span>
                         <CommitInput
                           multiline
                           rows={Math.min(10, (group.options?.length ?? 0) + 1)}
-                          label="Options"
-                          placeholder={'One per line\nA military innovation\nB large reward'}
+                          label={t('editor.groupOptionsAria')}
+                          placeholder={t('editor.groupOptionsPlaceholder')}
                           value={(group.options ?? []).map((o) => `${o.key} ${o.text}`).join('\n')}
                           onCommit={(v) =>
                             mutateGroup(group.id, (g, s) => {
@@ -460,13 +446,13 @@ export const TestEditor: React.FC<{
                     )}
                     {group.context !== undefined && (
                       <details className="disclosure">
-                        <summary>Notes / summary text shown to students</summary>
-                        <CommitInput multiline rows={8} className="serif" label="Notes text" value={group.context} onCommit={(v) => mutateGroup(group.id, (g) => (g.context = v))} />
+                        <summary>{t('editor.notes')}</summary>
+                        <CommitInput multiline rows={8} className="serif" label={t('editor.notesAria')} value={group.context} onCommit={(v) => mutateGroup(group.id, (g) => (g.context = v))} />
                       </details>
                     )}
                   </>
                 ) : (
-                  test.skill !== 'Writing' && test.skill !== 'Speaking' && <h3>Questions</h3>
+                  test.skill !== 'Writing' && test.skill !== 'Speaking' && <h3>{t('common.questionsHeading')}</h3>
                 )}
 
                 {questions.map((q) => questionRow(q, group))}
@@ -494,7 +480,7 @@ export const TestEditor: React.FC<{
                       })
                     }
                   >
-                    <Plus size={15} /> Add question
+                    <Plus size={15} /> {t('editor.addQuestion')}
                   </button>
                 </div>
               </div>
@@ -505,12 +491,12 @@ export const TestEditor: React.FC<{
 
       {confirmPublish && (
         <Modal
-          title="Publish with problems?"
+          title={t('editor.publishProblemsTitle')}
           onClose={() => setConfirmPublish(false)}
           footer={
             <>
               <button className="btn btn-secondary" onClick={() => setConfirmPublish(false)}>
-                Go back and fix
+                {t('editor.goFix')}
               </button>
               <button
                 className="btn btn-primary"
@@ -519,13 +505,12 @@ export const TestEditor: React.FC<{
                   save(true);
                 }}
               >
-                Publish anyway
+                {t('editor.publishAnyway')}
               </button>
             </>
           }
         >
-          {errorsAll.length} {errorsAll.length === 1 ? 'problem was' : 'problems were'} found, for example: <em>{errorsAll[0]?.message}</em>. Students may be marked
-          wrong for correct answers.
+          {tNode(errorsAll.length === 1 ? 'editor.problemsOne' : 'editor.problemsMany', { n: errorsAll.length, example: <em>{errorsAll[0]?.message}</em> })}
         </Modal>
       )}
     </div>
